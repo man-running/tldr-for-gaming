@@ -230,7 +230,7 @@ func (af *ArticleFetcher) parseRSSItem(item FeedItem, source *NewsSource) *artic
 		pubDate = time.Now() // Fallback to now
 	}
 
-	article := &article.ArticleData{
+	articleData := &article.ArticleData{
 		ID:            id,
 		Title:         item.Title,
 		OriginalSum:   stripHTML(item.Description),
@@ -243,7 +243,7 @@ func (af *ArticleFetcher) parseRSSItem(item FeedItem, source *NewsSource) *artic
 		UpdatedAt:     time.Now(),
 	}
 
-	return &article
+	return articleData
 }
 
 // FetchFromSources fetches articles from multiple sources
@@ -321,17 +321,16 @@ func parsePublishDate(dateStr string) (time.Time, error) {
 func stripHTML(html string) string {
 	// Simple HTML tag removal
 	result := html
-	start := 0
 	for {
-		start = strings.Index(result[start:], "<")
-		if start == -1 {
+		idx := strings.Index(result, "<")
+		if idx == -1 {
 			break
 		}
-		end := strings.Index(result[start:], ">")
-		if end == -1 {
+		endIdx := strings.Index(result[idx:], ">")
+		if endIdx == -1 {
 			break
 		}
-		result = result[:start] + result[start+end+1:]
+		result = result[:idx] + result[idx+endIdx+1:]
 	}
 
 	// Decode common HTML entities

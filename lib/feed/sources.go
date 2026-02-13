@@ -1,7 +1,6 @@
 package feed
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
