@@ -1,0 +1,57 @@
+[
+  {
+    "id": "igamingbusiness",
+    "name": "iGamingBusiness",
+    "url": "https://www.igamingbusiness.com",
+    "feedUrl": "https://www.igamingbusiness.com/feed/",
+    "category": "Business",
+    "active": true,
+    "priority": 10,
+    "scrapingType": "rss",
+    "timeout": 10000
+  },
+  {
+    "id": "gamblinginsider",
+    "name": "Gambling Insider",
+    "url": "https://www.gamblinginsider.com",
+    "feedUrl": "https://www.gamblinginsider.com/feed/",
+    "category": "Business",
+    "active": true,
+    "priority": 9,
+    "scrapingType": "rss",
+    "timeout": 10000
+  },
+  {
+    "id": "egamingreview",
+    "name": "eGaming Review",
+    "url": "https://www.egamingreview.com",
+    "feedUrl": "https://www.egamingreview.com/feed/",
+    "category": "Regulations",
+    "active": true,
+    "priority": 8,
+    "scrapingType": "rss",
+    "timeout": 10000
+  },
+  {
+    "id": "sportech",
+    "name": "Sportech",
+    "url": "https://www.sportech.com",
+    "feedUrl": "https://www.sportech.com/feed/",
+    "category": "Sports Betting",
+    "active": true,
+    "priority": 7,
+    "scrapingType": "rss",
+    "timeout": 10000
+  },
+  {
+    "id": "bettingindustry",
+    "name": "Betting Industry",
+    "url": "https://www.bettingindustry.com",
+    "feedUrl": "https://www.bettingindustry.com/feed/",
+    "category": "Sports Betting",
+    "active": true,
+    "priority": 7,
+    "scrapingType": "rss",
+    "timeout": 10000
+  }
+]
