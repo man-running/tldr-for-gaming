@@ -1,0 +1,8 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+Allow: /api/og/*
+
+# Sitemap location
+Sitemap: https://tldr.takara.ai/sitemap.xml
+

@@ -1,0 +1,110 @@
+# Takara TLDR - Professional Code Standards
+
+## Code Quality Standards
+
+This application follows enterprise-grade development practices with a focus on maintainability, performance, and clean architecture.
+
+### Package Management
+
+- **Use bun exclusively**: Never use npm, yarn, or pnpm for package management
+- **Lock file**: Always commit bun.lock to version control
+- **Installation**: Use `bun install` for dependency installation
+- **Scripts**: Use `bun dev`, `bun build`, `bun start` for development
+
+### Architecture Principles
+
+- **DRY (Don't Repeat Yourself)**: Extract reusable logic into utility functions and custom hooks
+- **Separation of Concerns**: Clear boundaries between data fetching, processing, and presentation
+- **Type Safety**: Full TypeScript implementation with strict typing
+- **Error Handling**: Comprehensive error boundaries and graceful degradation
+
+### Component Structure
+
+- Use functional components with hooks
+- Implement proper prop typing with TypeScript interfaces
+- Separate client and server components appropriately
+- Maintain single responsibility principle
+
+### Code Style
+
+- Follow consistent naming conventions (camelCase for variables, PascalCase for components)
+- Use meaningful variable and function names
+- Implement proper JSDoc comments for complex functions
+- Maintain consistent indentation and formatting
+
+### Performance Considerations
+
+- Implement proper memoization where beneficial
+- Use Next.js Image component for optimized image loading
+- Leverage React Suspense for loading states
+- Minimize bundle size through code splitting
+
+### Security Practices
+
+- Sanitize all user input and HTML content
+- Implement proper authentication and authorization
+- Use environment variables for sensitive configuration
+- Apply security headers through middleware
+
+### Testing Approach
+
+- Write unit tests for utility functions
+- Implement integration tests for API routes
+- Use proper error boundaries for component testing
+- Maintain high test coverage for critical paths
+
+### Documentation
+
+- Keep README.md updated with setup instructions
+- Document complex business logic
+- Maintain clear API documentation
+- Use inline comments sparingly but effectively
+
+### State Management
+
+- Prefer local state over global state when possible
+- Use React Context for theme and authentication state
+- Implement proper loading and error states
+- Avoid prop drilling through component composition
+
+### Accessibility
+
+- Implement proper ARIA labels and roles
+- Ensure keyboard navigation support
+- Maintain semantic HTML structure
+- Test with screen readers and assistive technologies
+
+### Error Handling
+
+- Implement comprehensive error boundaries
+- Provide meaningful error messages to users
+- Log errors appropriately for debugging
+- Gracefully handle network failures and edge cases
+
+### Code Organization
+
+- Group related functionality in dedicated directories
+- Use barrel exports for clean imports
+- Maintain consistent file naming conventions
+- Separate business logic from presentation logic
+
+### Performance Monitoring
+
+- Implement proper logging for debugging
+- Monitor bundle size and loading performance
+- Track user interactions and error rates
+- Optimize for Core Web Vitals
+
+### Deployment
+
+- Use environment-specific configurations
+- Implement proper build optimization
+- Maintain deployment documentation
+- Monitor application health and performance
+
+### Maintenance
+
+- Keep dependencies updated and secure
+- Regularly review and refactor code
+- Maintain consistent code style across the codebase
+- Document architectural decisions and trade-offs

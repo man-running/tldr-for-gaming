@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@source "../packages/shared-ui/src";
+
+@import "../packages/shared-ui/src/styles/globals.css";
