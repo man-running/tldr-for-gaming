@@ -44,6 +44,7 @@ type RankedArticle struct {
 type DailyDigest struct {
 	Date     string           `json:"date"`     // YYYY-MM-DD
 	Articles []RankedArticle  `json:"articles"` // Top 5 articles
+	Headline string           `json:"headline"` // One-sentence super summary
 	Summary  string           `json:"summary"`  // Overall day summary
 	Created  time.Time        `json:"created"`
 }
