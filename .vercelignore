@@ -1,0 +1,12 @@
+# Ignore Go files (this is a Next.js TypeScript project)
+**/*.go
+
+# Ignore test files
+**/*_test.go
+
+# Ignore local data directory
+data/
+
+# Ignore local env files
+.env.local
+.env*.local
