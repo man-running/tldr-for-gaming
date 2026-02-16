@@ -1,515 +1,405 @@
-# Vercel Deployment Guide
+# Vercel Deployment Guide - Blob Storage Edition
 
 ## Overview
 
-This Next.js application can be deployed to Vercel, but requires modifications to work with Vercel's serverless architecture. The main issue is that Vercel functions have **ephemeral file systems** - files written during runtime don't persist.
+✅ **This application is now ready for Vercel deployment!** It uses **Vercel Blob Storage** for persistent data and **Vercel Cron Jobs** for automated digest generation.
 
 ---
 
-## Current Architecture (Local Development)
+## Architecture
 
-### File-Based Storage
+### Dual Storage System
+
+The app uses an **environment-aware storage factory** that automatically switches between:
+
+- **Local Development**: File-based storage (`data/` directory)
+- **Vercel Production**: Blob Storage (S3-like object storage)
+
+### Storage Structure
 ```
-data/
-├── articles/2026-02-16.json      # Raw articles
-├── summaries/newsapi-123.json    # Individual summaries
-└── digests/2026-02-16.json       # Generated digests
+Blob Storage (Production):       File Storage (Local):
+├── articles/2026-02-16.json     ├── data/articles/2026-02-16.json
+├── summaries/newsapi-123.json   ├── data/summaries/newsapi-123.json
+└── digests/2026-02-16.json      └── data/digests/2026-02-16.json
 ```
 
-### Background Job
-- Manual execution: `npm run generate-digest`
-- Fetches articles, generates summaries, creates digest
-- Saves everything to local `data/` directory
+### Article Sources
+
+The digest fetches from **5 sources in parallel**:
+1. **NewsAPI** - Generic gambling/gaming news
+2. **SBC News** (RSS) - Sports Betting Community
+3. **iGaming Business** (RSS) - Industry news
+4. **Calvin Ayre** (RSS) - Gaming industry news
+5. **EGR** (RSS) - eGaming Review
+
+### Automated Digest Generation
+- **Production**: Vercel Cron runs daily at 6:00 AM UTC via `/api/cron/generate-digest`
+- **Local**: Manual execution with `npm run generate-digest`
 
 ### API Routes
-- `/api/digest` - Reads from `data/digests/`
-- `/api/summary/[id]` - Reads from `data/summaries/`
+- `/api/digest` - Returns latest/specific digest
+- `/api/summary/[id]` - Returns individual article summary
+- `/api/cron/generate-digest` - Protected cron endpoint (requires `CRON_SECRET`)
 
 ---
 
-## Why Current Architecture Won't Work on Vercel
+## Why Blob Storage?
 
-1. **Ephemeral File System**: Vercel serverless functions can write files during execution, but they disappear after the function finishes or between deployments.
-
-2. **No Persistent Disk**: The `data/` directory would be lost, making all generated digests and summaries inaccessible.
-
-3. **No Background Processes**: Can't run `npm run generate-digest` as a traditional cron job.
-
----
-
-## Required Changes for Vercel Deployment
-
-### 1. Migrate from File Storage to Database
-
-Replace `FileStorage` implementation with a database-backed storage system.
-
-#### Option A: Vercel Postgres (Recommended)
-
-**Pros:**
-- Native Vercel integration
-- SQL database (familiar, powerful)
-- Easy to set up
-- Free tier available
-
-**Setup:**
-1. Add Vercel Postgres to your project via Vercel dashboard
-2. Install dependencies:
-   ```bash
-   npm install @vercel/postgres
-   ```
-
-3. Create database schema:
-   ```sql
-   CREATE TABLE articles (
-     id VARCHAR(255) PRIMARY KEY,
-     title TEXT NOT NULL,
-     summary TEXT,
-     original_summary TEXT,
-     url TEXT NOT NULL,
-     source_name VARCHAR(255),
-     source_id VARCHAR(255),
-     published_date TIMESTAMP,
-     image_url TEXT,
-     categories JSONB,
-     created_at TIMESTAMP DEFAULT NOW()
-   );
-
-   CREATE TABLE summaries (
-     id VARCHAR(255) PRIMARY KEY,
-     title TEXT NOT NULL,
-     summary TEXT NOT NULL,
-     url TEXT NOT NULL,
-     source_name VARCHAR(255),
-     published_date TIMESTAMP,
-     generated_at TIMESTAMP DEFAULT NOW()
-   );
-
-   CREATE TABLE digests (
-     date DATE PRIMARY KEY,
-     articles JSONB NOT NULL,
-     summary TEXT NOT NULL,
-     created_at TIMESTAMP DEFAULT NOW()
-   );
-
-   CREATE INDEX idx_articles_published ON articles(published_date DESC);
-   CREATE INDEX idx_summaries_generated ON summaries(generated_at DESC);
-   ```
-
-4. Create new storage implementation (`lib/storage/postgres-storage.ts`):
-   ```typescript
-   import { sql } from '@vercel/postgres';
-   import type { IStorage, Article, StoredSummary, DailyDigest } from './storage-interface';
-
-   export class PostgresStorage implements IStorage {
-     async initialize(): Promise<void> {
-       // Tables created via SQL above
-     }
-
-     async saveArticles(date: string, articles: Article[]): Promise<void> {
-       for (const article of articles) {
-         await sql`
-           INSERT INTO articles (id, title, summary, original_summary, url, source_name, source_id, published_date, image_url, categories)
-           VALUES (${article.id}, ${article.title}, ${article.summary}, ${article.originalSummary}, ${article.url}, ${article.sourceName}, ${article.sourceId}, ${article.publishedDate}, ${article.imageUrl || null}, ${JSON.stringify(article.categories || [])})
-           ON CONFLICT (id) DO UPDATE SET
-             title = EXCLUDED.title,
-             summary = EXCLUDED.summary,
-             url = EXCLUDED.url
-         `;
-       }
-     }
-
-     async getArticles(date: string): Promise<Article[] | null> {
-       const { rows } = await sql`
-         SELECT * FROM articles
-         WHERE DATE(published_date) = ${date}
-         ORDER BY published_date DESC
-       `;
-       return rows.length > 0 ? rows.map(rowToArticle) : null;
-     }
-
-     async saveSummary(summary: StoredSummary): Promise<void> {
-       await sql`
-         INSERT INTO summaries (id, title, summary, url, source_name, published_date, generated_at)
-         VALUES (${summary.id}, ${summary.title}, ${summary.summary}, ${summary.url}, ${summary.sourceName}, ${summary.publishedDate}, ${summary.generatedAt})
-         ON CONFLICT (id) DO UPDATE SET
-           summary = EXCLUDED.summary,
-           generated_at = EXCLUDED.generated_at
-       `;
-     }
-
-     async getSummary(id: string): Promise<StoredSummary | null> {
-       const { rows } = await sql`SELECT * FROM summaries WHERE id = ${id}`;
-       return rows.length > 0 ? rowToSummary(rows[0]) : null;
-     }
-
-     async saveDigest(digest: DailyDigest): Promise<void> {
-       await sql`
-         INSERT INTO digests (date, articles, summary, created_at)
-         VALUES (${digest.date}, ${JSON.stringify(digest.articles)}, ${digest.summary}, ${digest.created})
-         ON CONFLICT (date) DO UPDATE SET
-           articles = EXCLUDED.articles,
-           summary = EXCLUDED.summary,
-           created_at = EXCLUDED.created_at
-       `;
-     }
-
-     async getDigest(date: string): Promise<DailyDigest | null> {
-       const { rows } = await sql`SELECT * FROM digests WHERE date = ${date}`;
-       return rows.length > 0 ? rowToDigest(rows[0]) : null;
-     }
-
-     async getLatestDigest(): Promise<DailyDigest | null> {
-       const { rows } = await sql`
-         SELECT * FROM digests
-         ORDER BY date DESC
-         LIMIT 1
-       `;
-       return rows.length > 0 ? rowToDigest(rows[0]) : null;
-     }
-
-     async getAllSummaries(): Promise<StoredSummary[]> {
-       const { rows } = await sql`SELECT * FROM summaries ORDER BY generated_at DESC`;
-       return rows.map(rowToSummary);
-     }
-   }
-
-   // Helper functions to convert DB rows to TypeScript objects
-   function rowToArticle(row: any): Article {
-     return {
-       id: row.id,
-       title: row.title,
-       summary: row.summary,
-       originalSummary: row.original_summary,
-       url: row.url,
-       sourceName: row.source_name,
-       sourceId: row.source_id,
-       publishedDate: row.published_date,
-       imageUrl: row.image_url,
-       categories: row.categories,
-     };
-   }
-
-   function rowToSummary(row: any): StoredSummary {
-     return {
-       id: row.id,
-       title: row.title,
-       summary: row.summary,
-       url: row.url,
-       sourceName: row.source_name,
-       publishedDate: row.published_date,
-       generatedAt: row.generated_at,
-     };
-   }
-
-   function rowToDigest(row: any): DailyDigest {
-     return {
-       date: row.date,
-       articles: row.articles,
-       summary: row.summary,
-       created: row.created_at,
-     };
-   }
-   ```
-
-5. Update storage instantiation:
-   ```typescript
-   // Before (file-based):
-   import { FileStorage } from '@/lib/storage/file-storage';
-   const storage = new FileStorage('./data');
-
-   // After (Postgres):
-   import { PostgresStorage } from '@/lib/storage/postgres-storage';
-   const storage = new PostgresStorage();
-   ```
-
-#### Option B: Vercel KV (Redis)
-
-**Pros:**
-- Extremely fast
-- Simple key-value storage
-- Native Vercel integration
-
-**Cons:**
-- Less structured than SQL
-- Harder to query/filter
-
-**Setup:**
-```bash
-npm install @vercel/kv
-```
-
-#### Option C: External Database (Supabase, PlanetScale)
-
-**Pros:**
-- More control
-- Can access outside Vercel
-- Generous free tiers
-
-**Cons:**
-- Slightly more complex setup
-- External service dependency
+**Blob Storage** was chosen over Postgres because:
+- ✅ File-like storage (matches existing architecture)
+- ✅ No schema migrations needed
+- ✅ **Cheapest option** (~$0.03/month vs $0.30/month for Postgres)
+- ✅ Simple to implement (same JSON structure)
+- ✅ Perfect for document/object storage
+- ✅ No complex queries needed
 
 ---
 
-### 2. Set Up Vercel Cron Jobs for Digest Generation
+## What's Already Implemented
 
-Vercel Cron allows scheduled function execution.
+✅ **Blob Storage Class** (`lib/storage/blob-storage.ts`)
+- Implements same `IStorage` interface as FileStorage
+- Uses Vercel Blob's `put()`, `list()` APIs
+- Maintains same path structure
 
-#### Create Cron API Route
+✅ **Storage Factory** (`lib/storage/index.ts`)
+- Auto-detects environment (`VERCEL` or `BLOB_READ_WRITE_TOKEN`)
+- Returns BlobStorage on Vercel, FileStorage locally
 
-**File:** `app/api/cron/generate-digest/route.ts`
+✅ **Digest Generator Module** (`lib/feed/digest-generator.ts`)
+- Extracted from script into reusable library
+- Accepts storage interface as parameter
+- Used by both local script and cron job
 
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { PostgresStorage } from '@/lib/storage/postgres-storage';
-// Import digest generation logic from scripts/generate-digest.ts
+✅ **Cron API Endpoint** (`app/api/cron/generate-digest/route.ts`)
+- Protected with `CRON_SECRET` authentication
+- 5-minute timeout (digest takes ~70-75 seconds)
+- Returns success/error status
 
-export async function GET(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized access
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+✅ **Cron Configuration** (`vercel.json`)
+- Schedules daily execution at 6:00 AM UTC
+- Can be customized (every 4 hours, weekly, etc.)
 
-  try {
-    const storage = new PostgresStorage();
-
-    // Run digest generation logic
-    // (move logic from scripts/generate-digest.ts into a reusable function)
-    await generateDailyDigest(storage);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Digest generated successfully'
-    });
-  } catch (error) {
-    console.error('Cron job error:', error);
-    return NextResponse.json({
-      error: 'Failed to generate digest'
-    }, { status: 500 });
-  }
-}
-```
-
-#### Configure Vercel Cron
-
-**File:** `vercel.json`
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/generate-digest",
-      "schedule": "0 6 * * *"
-    }
-  ]
-}
-```
-
-**Schedule formats:**
-- `"0 6 * * *"` - Daily at 6:00 AM UTC
-- `"0 */4 * * *"` - Every 4 hours
-- `"0 12 * * 1"` - Every Monday at 12:00 PM UTC
-
-#### Add CRON_SECRET Environment Variable
-
-In Vercel dashboard → Settings → Environment Variables:
-```
-CRON_SECRET=your-random-secret-string-here
-```
-
----
-
-### 3. Environment Variables
-
-Configure in Vercel dashboard (Settings → Environment Variables):
-
-```bash
-# Required
-CLAUDE_API_KEY=sk-ant-...
-NEWSAPI_KEY=your-newsapi-key
-CRON_SECRET=your-cron-secret
-
-# Optional
-CLAUDE_MODEL=claude-opus-4-6
-POSTGRES_URL=postgresql://...  # Auto-populated by Vercel Postgres
-```
+✅ **Updated API Routes**
+- Both `/api/digest` and `/api/summary/[id]` use storage factory
+- Work automatically in both environments
 
 ---
 
 ## Deployment Steps
 
-### 1. Prepare Repository
+### 1. Commit Your Changes
 
 ```bash
-# Ensure code is committed
 git add .
-git commit -m "Prepare for Vercel deployment"
+git commit -m "Add Vercel Blob storage and automated cron digest generation"
 git push origin main
 ```
 
 ### 2. Connect to Vercel
 
 1. Go to [vercel.com](https://vercel.com)
-2. Click "New Project"
-3. Import your Git repository
-4. Vercel will auto-detect Next.js
+2. Click **"New Project"**
+3. Import your Git repository (GitHub/GitLab/Bitbucket)
+4. Vercel auto-detects Next.js configuration
+5. Click **"Deploy"** (don't worry about env vars yet - we'll add them next)
 
-### 3. Configure Project
+### 3. Enable Vercel Blob Storage
 
-- **Framework Preset:** Next.js
-- **Root Directory:** `./` (unless you have a monorepo)
-- **Build Command:** `npm run build` (auto-detected)
-- **Output Directory:** `.next` (auto-detected)
+**This is the key step for persistent storage:**
 
-### 4. Add Vercel Postgres
+1. Go to your deployed project in Vercel Dashboard
+2. Navigate to **Storage** tab
+3. Click **"Create Database"** or **"Create Store"**
+4. Select **"Blob"** ← **IMPORTANT: Choose Blob, NOT Postgres!**
+5. Choose a store name (e.g., "tldr-gaming-blobs")
+6. Click **"Create"**
 
-1. In your Vercel project → Storage tab
-2. Click "Create Database"
-3. Select "Postgres"
-4. Create database (free tier available)
-5. Run SQL schema from section 1 above
+✅ Vercel automatically creates `BLOB_READ_WRITE_TOKEN` environment variable
 
-### 5. Set Environment Variables
+### 4. Configure Environment Variables
 
-Add all variables from section 3 above.
+Go to **Settings → Environment Variables** and add:
 
-### 6. Deploy
+| Variable | Value | Description |
+|----------|-------|-------------|
+| **`CLAUDE_API_KEY`** | `sk-ant-...` | Your Anthropic API key for summaries |
+| **`NEWSAPI_KEY`** | `your-key` | Your NewsAPI key for fetching articles |
+| **`CRON_SECRET`** | Generate random | Protects cron endpoint from unauthorized access |
+| **`CLAUDE_MODEL`** | `claude-opus-4-6` | (Optional) Model to use, has default |
+| **`BLOB_READ_WRITE_TOKEN`** | *Auto-created* | Automatically set by Vercel when you create Blob store |
 
-Click "Deploy" - Vercel will build and deploy your app.
+**Generate CRON_SECRET:**
+```bash
+openssl rand -base64 32
+# or
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
 
-### 7. Set Up Cron (Post-Deploy)
+**Important:** Set all variables for **Production**, **Preview**, and **Development** environments.
 
-1. Go to project Settings → Cron Jobs
-2. Verify your cron is listed (from `vercel.json`)
-3. Test manually: `curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://your-app.vercel.app/api/cron/generate-digest`
+### 5. Redeploy
 
-### 8. Initial Digest Generation
+After adding environment variables, trigger a new deployment:
+- Go to **Deployments** tab
+- Click "..." on latest deployment → **"Redeploy"**
+- Or push a new commit to trigger auto-deployment
 
-After first deployment, trigger cron manually to populate database:
+### 6. Generate Initial Digest
+
+Manually trigger the first digest to populate Blob Storage:
+
 ```bash
 curl -X GET \
   -H "Authorization: Bearer YOUR_CRON_SECRET" \
   https://your-app.vercel.app/api/cron/generate-digest
 ```
 
----
-
-## Refactoring Checklist
-
-- [ ] Create PostgresStorage implementation
-- [ ] Run database schema setup
-- [ ] Update `app/api/digest/route.ts` to use PostgresStorage
-- [ ] Update `app/api/summary/[id]/route.ts` to use PostgresStorage
-- [ ] Refactor `scripts/generate-digest.ts` into reusable function
-- [ ] Create `/api/cron/generate-digest/route.ts`
-- [ ] Add `vercel.json` with cron configuration
-- [ ] Update `.gitignore` to exclude `.vercel/`
-- [ ] Test locally with Vercel CLI: `npx vercel dev`
-- [ ] Deploy to Vercel
-- [ ] Configure environment variables
-- [ ] Set up Vercel Postgres
-- [ ] Trigger initial digest generation
-- [ ] Verify cron job runs successfully
-
----
-
-## Local Development with Vercel
-
-Use Vercel CLI to test locally with production-like environment:
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Link to your Vercel project
-vercel link
-
-# Pull environment variables
-vercel env pull .env.local
-
-# Run dev server with Vercel environment
-vercel dev
-```
-
----
-
-## Alternative: Hybrid Approach
-
-Keep file storage for local development, use database for production:
-
-```typescript
-// lib/storage/index.ts
-import { FileStorage } from './file-storage';
-import { PostgresStorage } from './postgres-storage';
-
-export function getStorage() {
-  if (process.env.VERCEL) {
-    return new PostgresStorage();
-  } else {
-    return new FileStorage('./data');
-  }
+**Expected Response:**
+```json
+{
+  "success": true,
+  "date": "2026-02-16",
+  "articleCount": 5,
+  "message": "Digest generated successfully"
 }
 ```
 
-Then use:
-```typescript
-const storage = getStorage();
+### 7. Verify Everything Works
+
+#### Check Blob Storage
+1. Vercel Dashboard → Storage → Blob
+2. Should see files with prefixes:
+   - `articles/`
+   - `summaries/`
+   - `digests/`
+
+#### Test API Endpoints
+```bash
+# Get latest digest
+curl https://your-app.vercel.app/api/digest
+
+# Get specific summary
+curl https://your-app.vercel.app/api/summary/newsapi-123456
 ```
+
+#### Verify Cron Job
+1. Vercel Dashboard → Deployments → Cron Jobs tab
+2. Should see `/api/cron/generate-digest` scheduled
+3. Wait until 6:00 AM UTC or manually trigger again
 
 ---
 
-## Cost Estimates (Vercel Free Tier)
+## Local Development
 
-- **Hosting:** Free for personal projects
-- **Vercel Postgres:** 256 MB free, then $0.30/GB/month
-- **Bandwidth:** 100 GB/month free
-- **Function Executions:** 100 GB-hours/month free
-- **Cron Jobs:** Included in free tier
+The storage factory automatically uses **FileStorage** locally - no changes needed!
 
-For this project, free tier should be sufficient for development/personal use.
+```bash
+# Uses local file storage (data/ directory)
+npm run generate-digest
+
+# Start dev server (reads from local data/)
+npm run dev
+
+# Visit http://localhost:3001/digest
+```
+
+Your local `data/` directory continues to work exactly as before.
+
+---
+
+## Customizing the Cron Schedule
+
+Edit `vercel.json` to change when digests are generated:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/generate-digest",
+      "schedule": "0 6 * * *"  // ← Change this
+    }
+  ]
+}
+```
+
+**Common Schedules:**
+- `"0 6 * * *"` - Daily at 6:00 AM UTC
+- `"0 */4 * * *"` - Every 4 hours
+- `"0 12 * * 1"` - Every Monday at 12:00 PM UTC
+- `"0 0 * * *"` - Midnight UTC daily
+- `"0 9 * * 1-5"` - Weekdays at 9:00 AM UTC
+
+After changing, push to trigger redeployment.
+
+---
+
+## Cost Estimates
+
+### Vercel Blob Storage Pricing
+
+| Resource | Free Tier | Cost After |
+|----------|-----------|------------|
+| **Storage** | - | $0.15/GB/month |
+| **Reads** | 500K/month | $0.15/million |
+| **Writes** | 500K/month | $0.15/million |
+
+### Estimated Monthly Usage
+
+For daily digests:
+- **Storage**: ~500 KB/day × 365 days = ~180 MB/year = **$0.03/month**
+- **Writes**: 1 digest + 15 summaries + 1 articles = ~17 writes/day = **Free tier**
+- **Reads**: ~1000 page views/day = 1000 reads/day = **Free tier**
+
+**Total Cost: ~$0.03/month** (essentially free!)
+
+### Comparison
+
+| Storage Type | Cost/Month | Setup Complexity |
+|--------------|------------|------------------|
+| **Blob Storage** | ~$0.03 | ⭐ Simple |
+| Vercel Postgres | ~$0.30+ | ⭐⭐ Medium |
+| Vercel KV | ~$0.20+ | ⭐ Simple |
 
 ---
 
 ## Troubleshooting
 
-### Functions Timeout
-- Increase function timeout in `vercel.json`:
-  ```json
-  {
-    "functions": {
-      "app/api/cron/generate-digest/route.ts": {
-        "maxDuration": 60
-      }
-    }
-  }
-  ```
+### "No digest available" Error
 
-### Database Connection Errors
-- Verify `POSTGRES_URL` is set
-- Check database is in same region as functions
-- Ensure connection pooling is configured
+**Problem**: API returns 404 when accessing `/api/digest`
 
-### Cron Not Running
-- Check Vercel dashboard → Deployments → Functions tab
-- Verify `CRON_SECRET` matches
-- Check function logs for errors
+**Solution**:
+1. Check Blob Storage has files (Vercel Dashboard → Storage → Blob)
+2. Manually trigger cron to generate first digest:
+   ```bash
+   curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+     https://your-app.vercel.app/api/cron/generate-digest
+   ```
+
+### Cron Returns 401 Unauthorized
+
+**Problem**: Cron endpoint returns "Unauthorized"
+
+**Solution**:
+1. Verify `CRON_SECRET` is set in Vercel environment variables
+2. Check you're using correct secret in Authorization header
+3. Format must be: `Bearer YOUR_SECRET` (note the space)
+
+### Function Timeout
+
+**Problem**: Digest generation times out
+
+**Solution**: The cron endpoint already has `maxDuration: 300` (5 minutes). If it still times out:
+
+1. Check if Claude API is responding slowly
+2. Consider reducing `articlesToSummarize` from 15 to 10 in `digest-generator.ts`
+3. Or implement parallel summary generation (currently serial)
+
+### BLOB_READ_WRITE_TOKEN Not Set
+
+**Problem**: Error about missing BLOB_READ_WRITE_TOKEN
+
+**Solution**:
+1. Ensure you created a Blob store (Step 3 above)
+2. Vercel automatically sets this token - you don't need to add it manually
+3. Try redeploying after creating the Blob store
+
+### Local Development Not Working
+
+**Problem**: `npm run generate-digest` fails
+
+**Solution**:
+1. Ensure `.env.local` has `CLAUDE_API_KEY` and `NEWSAPI_KEY`
+2. Check `data/` directory exists (should be created automatically)
+3. Local development uses FileStorage, not Blob - no BLOB_READ_WRITE_TOKEN needed
 
 ---
 
-## Future Enhancements
+## Monitoring & Logs
 
-- **CDN Caching:** Cache digest responses at edge
-- **Image Optimization:** Use Vercel Image Optimization
-- **Analytics:** Add Vercel Analytics
-- **Preview Deployments:** Test changes before production
-- **Edge Functions:** Move read-heavy operations to edge for better performance
+### View Cron Execution Logs
+
+1. Vercel Dashboard → Deployments
+2. Click on a deployment → Functions tab
+3. Find `/api/cron/generate-digest`
+4. Click to see execution logs
+
+### Check Generated Digests
+
+```bash
+# List all blobs
+curl https://[your-blob-store-url].blob.vercel-storage.com/?prefix=digests/
+
+# View specific digest (in browser)
+https://your-app.vercel.app/api/digest?date=2026-02-16
+```
+
+---
+
+## Security Best Practices
+
+### Protecting the Cron Endpoint
+
+✅ **Already Implemented:**
+- `CRON_SECRET` authentication required
+- Only Vercel's cron system knows the secret
+- API endpoint validates Bearer token
+
+### Environment Variables
+
+✅ **Best Practices:**
+- Never commit `.env.local` to git (already in `.gitignore`)
+- Rotate `CRON_SECRET` if accidentally exposed
+- Use different secrets for Production/Preview/Development
+
+### Blob Access
+
+✅ **Current Setup:**
+- Blobs are set to `access: 'public'` for API reads
+- No authentication needed to read digest/summary JSON
+- This is intentional - it's public content
+
+If you need private blobs, change `access: 'public'` to `access: 'private'` in `blob-storage.ts`.
+
+---
+
+## Next Steps
+
+### After Successful Deployment
+
+1. **Monitor First Cron Run**: Wait until 6:00 AM UTC and check logs
+2. **Test Digest Page**: Visit `https://your-app.vercel.app/digest`
+3. **Set Up Analytics**: Consider adding Vercel Analytics
+4. **Custom Domain**: Add custom domain in Vercel settings
+5. **Preview Deployments**: Test changes in preview before production
+
+### Future Enhancements
+
+- **Parallel Summary Generation**: Speed up digest creation (60s → 5s)
+- **Edge Caching**: Serve digests from CDN
+- **Email Notifications**: Send digest via email when generated
+- **RSS Feed**: Generate RSS feed from digests
+- **Multiple Timezones**: Generate digests for different regions
 
 ---
 
 ## Resources
 
-- [Vercel Postgres Documentation](https://vercel.com/docs/storage/vercel-postgres)
+- [Vercel Blob Documentation](https://vercel.com/docs/storage/vercel-blob)
 - [Vercel Cron Jobs Documentation](https://vercel.com/docs/cron-jobs)
 - [Next.js Deployment Documentation](https://nextjs.org/docs/deployment)
-- [Vercel Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables)
+- [Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables)
+
+---
+
+## Support
+
+If you encounter issues:
+
+1. Check Vercel function logs (Deployments → Functions)
+2. Review this guide's Troubleshooting section
+3. Verify all environment variables are set
+4. Ensure Blob store was created (not Postgres!)
+
+**Common mistake**: Creating Postgres instead of Blob store. If you did this, delete the Postgres store and create a Blob store instead.
