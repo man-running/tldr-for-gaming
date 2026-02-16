@@ -86,10 +86,10 @@ func TestDailyDigest(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		articles[i] = RankedArticle{
 			Article: ArticleData{
-				ID:    "article-" + string(rune(i)),
-				Title: "Article " + string(rune(i)),
+				ID:    "article-" + string(rune(i+'0')),
+				Title: "Article " + string(rune(i+'0')),
 			},
-			Score: float64(1 - (i * 0.1)),
+			Score: 1.0 - (float64(i) * 0.1),
 			Rank:  i + 1,
 		}
 	}
@@ -225,11 +225,12 @@ func TestRankingCriteria(t *testing.T) {
 		t.Errorf("Expected category weight 0.10, got %f", criteria.CategoryWeight)
 	}
 
-	// Verify weights sum to 1.0
+	// Verify weights sum to 1.0 (with floating point tolerance)
 	totalWeight := criteria.RecencyWeight + criteria.SourceWeight +
 		criteria.EngagementWeight + criteria.CategoryWeight
 	expectedTotal := 1.0
-	if totalWeight != expectedTotal {
+	tolerance := 0.0001
+	if totalWeight < expectedTotal-tolerance || totalWeight > expectedTotal+tolerance {
 		t.Errorf("Weights should sum to 1.0, got %f", totalWeight)
 	}
 }
@@ -259,9 +260,9 @@ func TestRankingCriteriaCustomization(t *testing.T) {
 // TestArticleDataWithMetadata tests article with complex metadata
 func TestArticleDataWithMetadata(t *testing.T) {
 	metadata := map[string]interface{}{
-		"views":     1500,
-		"shares":    45,
-		"comments":  12,
+		"views":     1500.0,
+		"shares":    45.0,
+		"comments":  12.0,
 		"engagement_score": 0.78,
 		"sentiment": "positive",
 	}
@@ -283,7 +284,7 @@ func TestArticleDataWithMetadata(t *testing.T) {
 	if !ok {
 		t.Error("Failed to retrieve views from metadata")
 	}
-	if views != 1500 {
+	if views != 1500.0 {
 		t.Errorf("Expected views 1500, got %v", views)
 	}
 }

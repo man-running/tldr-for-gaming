@@ -461,3 +461,112 @@ func TestGetGlobalCacheManager(t *testing.T) {
 		t.Error("Global cache manager should be singleton")
 	}
 }
+
+// TestCacheManagerSetSummarizer tests summarizer registration
+func TestCacheManagerSetSummarizer(t *testing.T) {
+	manager := NewCacheManager(5*time.Minute, 100)
+	summarizer, _ := NewArticleSummarizer(&SummarizerConfig{
+		APIKey: "test",
+	})
+
+	manager.SetSummarizer(summarizer)
+
+	// Verify summarizer is set
+	manager.mu.RLock()
+	if manager.summarizer == nil {
+		t.Error("Summarizer should be set")
+	}
+	manager.mu.RUnlock()
+}
+
+// TestCacheManagerSetRankingEngine tests ranking engine registration
+func TestCacheManagerSetRankingEngine(t *testing.T) {
+	manager := NewCacheManager(5*time.Minute, 100)
+	criteria := article.NewRankingCriteria()
+	ranker := NewRankingEngine(criteria, nil)
+
+	manager.SetRankingEngine(ranker)
+
+	// Verify ranker is set
+	manager.mu.RLock()
+	if manager.rankingEngine == nil {
+		t.Error("Ranking engine should be set")
+	}
+	manager.mu.RUnlock()
+}
+
+// TestCacheManagerSetDigestBuilder tests digest builder registration
+func TestCacheManagerSetDigestBuilder(t *testing.T) {
+	manager := NewCacheManager(5*time.Minute, 100)
+	cache := NewArticleCache(time.Hour, 100)
+	criteria := article.NewRankingCriteria()
+	ranker := NewRankingEngine(criteria, nil)
+	summarizer, _ := NewArticleSummarizer(&SummarizerConfig{
+		APIKey: "test",
+	})
+	builder := NewDigestBuilder(cache, ranker, summarizer)
+
+	manager.SetDigestBuilder(builder)
+
+	// Verify builder is set
+	manager.mu.RLock()
+	if manager.digestBuilder == nil {
+		t.Error("Digest builder should be set")
+	}
+	manager.mu.RUnlock()
+}
+
+// TestCacheManagerGetDailyDigest tests digest retrieval
+func TestCacheManagerGetDailyDigest(t *testing.T) {
+	manager := NewCacheManager(5*time.Minute, 100)
+	cache := NewArticleCache(time.Hour, 100)
+	criteria := article.NewRankingCriteria()
+	sourceMgr := NewSourceManager()
+	sourceMgr.LoadDefaultSources()
+	ranker := NewRankingEngine(criteria, sourceMgr)
+	summarizer, _ := NewArticleSummarizer(&SummarizerConfig{
+		APIKey: "test",
+	})
+	builder := NewDigestBuilder(cache, ranker, summarizer)
+
+	manager.SetDigestBuilder(builder)
+
+	// Add articles to cache
+	articles := []article.ArticleData{
+		{
+			ID:            "test-1",
+			Title:         "Article 1",
+			URL:           "https://example.com/1",
+			SourceID:      "igamingbusiness",
+			PublishedDate: time.Now().Format(time.RFC3339),
+			Summary:       "Summary 1",
+		},
+	}
+	manager.articleCache.SetBatch(articles)
+
+	// Get digest
+	today := time.Now().Format("2006-01-02")
+	digest, err := manager.GetDailyDigest(today)
+
+	if err != nil {
+		t.Fatalf("GetDailyDigest() error = %v", err)
+	}
+
+	if digest == nil {
+		t.Fatal("Digest should not be nil")
+	}
+
+	if digest.Date != today {
+		t.Errorf("Digest date = %s, expected %s", digest.Date, today)
+	}
+}
+
+// TestCacheManagerGetDailyDigestNoBuilder tests error when builder not set
+func TestCacheManagerGetDailyDigestNoBuilder(t *testing.T) {
+	manager := NewCacheManager(5*time.Minute, 100)
+
+	_, err := manager.GetDailyDigest(time.Now().Format("2006-01-02"))
+	if err == nil {
+		t.Error("GetDailyDigest() should error when builder not configured")
+	}
+}

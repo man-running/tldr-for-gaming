@@ -39,6 +39,15 @@ const nextConfig = withPWA(
 					protocol: "http",
 					hostname: "localhost",
 				},
+				// Allow images from any domain (for news articles)
+				{
+					protocol: "https",
+					hostname: "**",
+				},
+				{
+					protocol: "http",
+					hostname: "**",
+				},
 			],
 		},
 		typedRoutes: true,

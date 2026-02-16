@@ -1,6 +1,7 @@
 package feed
 
 import (
+	"context"
 	"fmt"
 	"main/lib/article"
 	"sync"
@@ -325,6 +326,9 @@ type CacheManager struct {
 	mu             sync.RWMutex
 	articleCache   *ArticleCache
 	sourceMetadata map[string]*SourceCache
+	summarizer     *ArticleSummarizer
+	rankingEngine  *RankingEngine
+	digestBuilder  *DigestBuilder
 }
 
 // NewCacheManager creates a new cache manager
@@ -399,4 +403,55 @@ func GetGlobalCacheManager(ttl time.Duration, maxSize int) *CacheManager {
 	}
 
 	return globalCacheManager
+}
+
+// SetSummarizer registers a summarizer for article enhancement
+func (cm *CacheManager) SetSummarizer(s *ArticleSummarizer) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cm.summarizer = s
+}
+
+// SetRankingEngine registers a ranking engine
+func (cm *CacheManager) SetRankingEngine(r *RankingEngine) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cm.rankingEngine = r
+}
+
+// SetDigestBuilder registers a digest builder
+func (cm *CacheManager) SetDigestBuilder(d *DigestBuilder) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cm.digestBuilder = d
+}
+
+// EnhanceArticles summarizes and ranks articles in batch
+func (cm *CacheManager) EnhanceArticles(ctx context.Context, articles []article.ArticleData) error {
+	cm.mu.RLock()
+	summarizer := cm.summarizer
+	cm.mu.RUnlock()
+
+	if summarizer == nil {
+		return fmt.Errorf("summarizer not configured")
+	}
+
+	// Summarize articles
+	return summarizer.SummarizeBatch(ctx, articles)
+}
+
+// GetDailyDigest builds and returns a daily digest
+func (cm *CacheManager) GetDailyDigest(date string) (*article.DailyDigest, error) {
+	cm.mu.RLock()
+	digestBuilder := cm.digestBuilder
+	cm.mu.RUnlock()
+
+	if digestBuilder == nil {
+		return nil, fmt.Errorf("digest builder not configured")
+	}
+
+	return digestBuilder.BuildDailyDigest(date)
 }

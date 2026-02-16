@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 	description: siteConfig.description,
 	applicationName: siteConfig.name,
 	authors: [
-		{ name: siteConfig.creator, url: siteConfig.links.takaraHuggingFace },
+		{ name: siteConfig.creator },
 	],
 	creator: siteConfig.creator,
 	publisher: "takara.ai Ltd",
