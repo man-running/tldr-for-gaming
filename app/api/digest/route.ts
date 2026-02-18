@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStorage } from "@/lib/storage";
+import { logger } from "@/lib/logger";
 
 const storage = getStorage();
 
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     if (dateParam) {
       const parsed = new Date(dateParam);
       if (isNaN(parsed.getTime())) {
+        logger.warn("Invalid date format in request", { dateParam });
         return NextResponse.json(
           { error: "Invalid date format. Use YYYY-MM-DD" },
           { status: 400 }
@@ -27,16 +29,19 @@ export async function GET(request: NextRequest) {
       targetDate = new Date().toISOString().split("T")[0];
     }
 
+    logger.debug("Retrieving digest", { targetDate });
+
     // Try to get digest for the specified date
     let digest = await storage.getDigest(targetDate);
 
     // If no digest for today, try to get the latest digest
     if (!digest && !dateParam) {
-      console.log(`No digest found for ${targetDate}, trying latest...`);
+      logger.info("No digest found for requested date, fetching latest", { targetDate });
       digest = await storage.getLatestDigest();
     }
 
     if (!digest) {
+      logger.warn("No digest available");
       return NextResponse.json(
         {
           error: "No digest available",
@@ -46,6 +51,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    logger.info("Digest retrieved successfully", { date: targetDate });
+
     return NextResponse.json(digest, {
       headers: {
         "Content-Type": "application/json",
@@ -53,7 +60,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error retrieving digest:", error);
+    logger.error("Error retrieving digest", error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: "Failed to retrieve digest" },
       { status: 500 }

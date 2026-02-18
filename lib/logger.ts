@@ -5,14 +5,13 @@ interface LogContext {
 }
 
 class Logger {
-	private isDevelopment = process.env.NODE_ENV === "development";
 	private isDebugEnabled = process.env.RSS_DEBUG === "true";
 
 	private shouldLog(level: LogLevel): boolean {
 		if (level === "debug") {
-			return this.isDevelopment && this.isDebugEnabled;
+			return this.isDebugEnabled;
 		}
-		return this.isDevelopment || level === "error" || level === "warn";
+		return true; // Always log info, warn, and error
 	}
 
 	private formatMessage(
@@ -20,9 +19,13 @@ class Logger {
 		message: string,
 		context?: LogContext,
 	): string {
-		const timestamp = new Date().toISOString();
-		const contextStr = context ? ` ${JSON.stringify(context)}` : "";
-		return `[${timestamp}] ${level.toUpperCase()}: ${message}${contextStr}`;
+		const logEntry = {
+			timestamp: new Date().toISOString(),
+			level: level.toUpperCase(),
+			message,
+			...(context && { context }),
+		};
+		return JSON.stringify(logEntry);
 	}
 
 	debug(message: string, context?: LogContext): void {
@@ -33,7 +36,7 @@ class Logger {
 
 	info(message: string, context?: LogContext): void {
 		if (this.shouldLog("info")) {
-			console.info(this.formatMessage("info", message, context));
+			console.log(this.formatMessage("info", message, context));
 		}
 	}
 
@@ -47,8 +50,8 @@ class Logger {
 		if (this.shouldLog("error")) {
 			const errorContext = {
 				...context,
-				error: error?.message,
-				stack: error?.stack,
+				errorMessage: error?.message,
+				errorStack: error?.stack,
 			};
 			console.error(this.formatMessage("error", message, errorContext));
 		}
