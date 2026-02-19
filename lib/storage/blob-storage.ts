@@ -34,6 +34,7 @@ export class BlobStorage implements IStorage {
     await put(pathname, JSON.stringify(articles, null, 2), {
       access: 'public',
       contentType: 'application/json',
+      allowOverwrite: true,
     });
     console.log(`Saved ${articles.length} articles to blob: ${pathname}`);
   }
@@ -73,6 +74,7 @@ export class BlobStorage implements IStorage {
     await put(pathname, JSON.stringify(summary, null, 2), {
       access: 'public',
       contentType: 'application/json',
+      allowOverwrite: true,
     });
     console.log(`Saved summary to blob: ${summary.id}`);
   }
@@ -139,6 +141,7 @@ export class BlobStorage implements IStorage {
     await put(pathname, JSON.stringify(digest, null, 2), {
       access: 'public',
       contentType: 'application/json',
+      allowOverwrite: true,
     });
     console.log(`Saved digest for ${digest.date} to blob: ${pathname}`);
   }
