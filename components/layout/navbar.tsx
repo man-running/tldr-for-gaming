@@ -283,15 +283,17 @@ export function Navbar() {
 		performSearch();
 	}, [performSearch]);
 
-	const searchSlot = (
-		<SearchBar
-			stage={searchStage}
-			query={query}
-			onOpen={openSearch}
-			onChange={setQuery}
-			inputRef={inputRef}
-		/>
-	);
+	// Search is temporarily hidden — to be re-implemented with DS1
+	// const searchSlot = (
+	// 	<SearchBar
+	// 		stage={searchStage}
+	// 		query={query}
+	// 		onOpen={openSearch}
+	// 		onChange={setQuery}
+	// 		inputRef={inputRef}
+	// 	/>
+	// );
+	const searchSlot = null;
 
 	return (
 		<>

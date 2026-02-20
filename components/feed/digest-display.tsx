@@ -145,14 +145,16 @@ export function DigestDisplay({ date }: DigestDisplayProps) {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Banner with Title, Date, and Headline */}
-      <div className="mb-12 border-b border-gray-200 dark:border-gray-700 pb-8">
-        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-3">
-          TLDR: Gaming and Gambling
+      <div className="mb-12 pb-8 border-b border-accent/20 dark:border-accent/30">
+        <div className="h-1 bg-accent rounded-full mb-6" />
+        <h1 className="text-5xl md:text-6xl font-bold mb-3">
+          <span className="text-accent">TLDR</span>
+          <span className="text-gray-900 dark:text-white">: Gaming &amp; Gambling</span>
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-sm font-semibold text-accent uppercase tracking-widest mb-4">
           {formatDate(digest.date)}
         </p>
-        <p className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">
+        <p className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-200 leading-relaxed border-l-4 border-accent pl-4">
           {digest.headline}
         </p>
       </div>

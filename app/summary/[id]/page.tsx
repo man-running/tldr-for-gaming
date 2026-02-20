@@ -87,7 +87,7 @@ export default function SummaryPage({ params }: { params: Promise<{ id: string }
           <div className="max-w-3xl mx-auto">
             {/* Back arrow */}
             <a
-              href="/digest"
+              href="/gaming"
               className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 mb-6 transition-colors"
             >
               <svg
@@ -117,7 +117,7 @@ export default function SummaryPage({ params }: { params: Promise<{ id: string }
                   priority
                 />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
+                <div className="absolute inset-0 bg-gradient-to-br from-accent to-pink-500">
                   <div className="absolute inset-0 flex items-center justify-center p-8">
                     <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center drop-shadow-lg">
                       {summary.title}
@@ -166,7 +166,7 @@ export default function SummaryPage({ params }: { params: Promise<{ id: string }
                 href={summary.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:opacity-90 text-white font-medium rounded-lg transition-opacity"
               >
                 Read Full Article
                 <svg

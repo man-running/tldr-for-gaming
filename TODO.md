@@ -1,45 +1,5 @@
 # TODO List
 
-## UI/Branding Improvements
-
-### 1. Update Digest Banner Colors
-**Priority:** Medium
-**Description:** Change the default banner to use colors more in line with iGaming/TLDR branding
-**Current:** Default theme colors
-**Target:** Brand-aligned color scheme
-**Files to modify:**
-- `components/feed/digest-banner.tsx` (or similar)
-- Possibly `app/digest/page.tsx`
-
----
-
-### 2. Style "Read Full Article" Button
-**Priority:** Medium
-**Description:** Update the "Read Full Article" button to use Takara red branding
-**Current:** Default button styling
-**Target:** Takara red (#FF0000 or brand-specific red)
-**Files to modify:**
-- `components/feed/ranked-article-card.tsx`
-- Check for any other article card components
-
----
-
-### 3. Hide Search Feature
-**Priority:** High
-**Description:** Temporarily hide the search functionality and re-implement later using DS1 (Design System 1)
-**Current:** Search is visible/enabled
-**Target:** Hidden from UI, code preserved for future re-implementation
-**Files to modify:**
-- `components/layout/root-navbar.tsx` (or navigation component)
-- Consider adding feature flag: `FEATURE_SEARCH_ENABLED=false`
-
-**Notes:**
-- Don't delete search code, just hide/disable it
-- Plan to rebuild with DS1 design system
-- May need to update navigation/header layout
-
----
-
 ## Features
 
 ### 4. Implement Email Subscriptions
@@ -88,6 +48,66 @@
 - [Resend Documentation](https://resend.com/docs) - Modern email API
 - [SendGrid](https://sendgrid.com/) - Established email service
 - [React Email](https://react.email/) - Email templates with React
+
+---
+
+### 5. Analytics & Tracking (PostHog)
+**Priority:** High
+**Description:** PostHog infrastructure is already partially set up — verify it's working and add meaningful custom event tracking.
+
+**Current State:**
+- `posthog-js` is installed as a dependency
+- `PostHogProvider` exists at `components/analytics/posthog-provider.tsx` and is wired into `app/layout.tsx`
+- `/ingest` proxy is configured in `next.config.mjs` (EU region)
+- Auto page view and page leave tracking are enabled
+- `NEXT_PUBLIC_POSTHOG_KEY` needs to be set in `.env.local` and Vercel env vars
+
+**Implementation Steps:**
+1. Confirm `NEXT_PUBLIC_POSTHOG_KEY` is set in `.env.local` and in Vercel project settings
+2. Verify events are appearing in the PostHog dashboard (check EU: https://eu.posthog.com)
+3. Add custom event tracking for key user actions:
+   - Digest page viewed (with date)
+   - Article card "Read Full Article" clicked (with article title/URL)
+   - Digest navigation (prev/next day)
+   - Email subscription CTA clicked
+4. Consider adding a `usePostHog` hook wrapper for easy reuse across components
+
+**Files to modify:**
+- `.env.local` — add `NEXT_PUBLIC_POSTHOG_KEY`
+- `components/feed/ranked-article-card.tsx` — track article clicks
+- `components/feed/digest-navigation.tsx` — track navigation events
+- `components/email/daily-email-summary/daily-email-subscription-cta.tsx` — track CTA clicks
+
+---
+
+### 6. Wire Calendar Into Digest Navigation
+**Priority:** High
+**Description:** `CalendarMenu` is fully built and wired into the home page navbar. It needs to be connected to the digest pages so users can navigate between daily digests by date.
+
+**Current State:**
+- `CalendarMenu` (`components/feed/calendar-menu.tsx`) is complete — supports `currentDate`, `navigateToDate`, and `availableDates` props, greys out unavailable dates
+- `HomePageNavbarProvider` feeds the calendar from the paper feed context (home page only)
+- `/digest/[date]/page.tsx` exists and passes `date` to `DigestDisplay` correctly
+- `DigestDisplay` already fetches `/api/digest?date={date}` when a date prop is passed
+- The digest pages use a plain `Navbar` with no context provider, so the calendar gets `undefined` and is effectively dead on `/digest` and `/digest/[date]`
+- `DigestNavigation` (`components/feed/digest-navigation.tsx`) exists as a simpler fallback (native date input + links) but is not rendered anywhere
+
+**What Needs to Be Done:**
+1. **Create `/api/digest/dates` endpoint** — list available digest dates from Vercel Blob storage (reuse blob listing logic from existing digest API)
+2. **Create `DigestNavbarProvider`** — client component similar to `HomePageNavbarProvider` that:
+   - Fetches available dates from `/api/digest/dates`
+   - Tracks `currentDate` from the URL param
+   - Provides `navigateToDate` using `router.push('/digest/[date]')`
+   - Wraps via `NavbarFeedContext`
+3. **Wrap digest pages** — add `DigestNavbarProvider` to both `app/digest/page.tsx` and `app/digest/[date]/page.tsx` so the navbar `CalendarMenu` receives live data
+4. **Update `Navbar`** — add a `isDigestPage` check (similar to `isHomePage`) so `HomePageNav` (which renders `CalendarMenu`) is used on digest pages too
+
+**Files to modify:**
+- `app/api/digest/dates/route.ts` — new endpoint (list available blob dates)
+- `components/feed/digest-navbar-provider.tsx` — new provider component
+- `app/digest/page.tsx` — wrap with provider
+- `app/digest/[date]/page.tsx` — wrap with provider, pass date to provider
+- `components/layout/navbar.tsx` — extend page detection to include digest pages
 
 ---
 

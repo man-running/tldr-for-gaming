@@ -152,9 +152,9 @@ export function RankedArticleCard({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            className="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-opacity"
           >
-            Read →
+            Read Full Article →
           </a>
         </div>
       </div>
