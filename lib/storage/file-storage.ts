@@ -131,6 +131,21 @@ export class FileStorage implements IStorage {
   }
 
   /**
+   * List all available digest dates, sorted newest first
+   */
+  async listDigestDates(): Promise<string[]> {
+    if (!fs.existsSync(this.digestsDir)) {
+      return [];
+    }
+    return fs.readdirSync(this.digestsDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => f.replace('.json', ''))
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort()
+      .reverse();
+  }
+
+  /**
    * Get the most recent digest
    */
   async getLatestDigest(): Promise<DailyDigest | null> {

@@ -59,6 +59,7 @@ export interface IStorage {
   saveDigest(digest: DailyDigest): Promise<void>;
   getDigest(date: string): Promise<DailyDigest | null>;
   getLatestDigest(): Promise<DailyDigest | null>;
+  listDigestDates(): Promise<string[]>;
 
   // Utility
   initialize(): Promise<void>;

@@ -7,10 +7,10 @@ import { NavbarSection } from "./navbar-section";
 export function RootNavbar() {
 	const pathname = usePathname();
 	const isHomePage = pathname === "/";
+	const isGamingPage = pathname.startsWith("/gaming");
 
-	// Only render navbar on non-home pages
-	// Home page renders its own navbar inside FeedDataProvider
-	if (isHomePage) {
+	// Home and gaming pages render their own navbar inside their context providers
+	if (isHomePage || isGamingPage) {
 		return null;
 	}
 

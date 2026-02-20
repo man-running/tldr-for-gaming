@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { DigestDisplay } from "@/components/feed/digest-display";
-import { Navbar } from "@/components/layout/navbar";
-import { NavbarSection } from "@/components/layout/navbar-section";
 import { Footer } from "@/components/layout/footer";
 import { Section } from "@/components/layout/section";
 
@@ -28,9 +26,6 @@ export default async function DigestDatePage({ params }: DigestDatePageProps) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return (
       <>
-        <NavbarSection>
-          <Navbar />
-        </NavbarSection>
         <main className="min-h-screen w-full flex flex-col mb-40">
           <Section className="w-full items-stretch">
             <div className="w-full max-w-4xl mx-auto">
@@ -52,9 +47,6 @@ export default async function DigestDatePage({ params }: DigestDatePageProps) {
 
   return (
     <>
-      <NavbarSection>
-        <Navbar />
-      </NavbarSection>
       <main className="min-h-screen w-full flex flex-col mb-40">
         <Section className="w-full items-stretch">
           <div className="w-full max-w-4xl mx-auto">

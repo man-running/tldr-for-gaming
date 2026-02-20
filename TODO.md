@@ -87,9 +87,9 @@
 **Current State:**
 - `CalendarMenu` (`components/feed/calendar-menu.tsx`) is complete — supports `currentDate`, `navigateToDate`, and `availableDates` props, greys out unavailable dates
 - `HomePageNavbarProvider` feeds the calendar from the paper feed context (home page only)
-- `/digest/[date]/page.tsx` exists and passes `date` to `DigestDisplay` correctly
+- `/gaming/[date]/page.tsx` exists and passes `date` to `DigestDisplay` correctly
 - `DigestDisplay` already fetches `/api/digest?date={date}` when a date prop is passed
-- The digest pages use a plain `Navbar` with no context provider, so the calendar gets `undefined` and is effectively dead on `/digest` and `/digest/[date]`
+- The digest pages use a plain `Navbar` with no context provider, so the calendar gets `undefined` and is effectively dead on `/gaming` and `/gaming/[date]`
 - `DigestNavigation` (`components/feed/digest-navigation.tsx`) exists as a simpler fallback (native date input + links) but is not rendered anywhere
 
 **What Needs to Be Done:**
@@ -97,16 +97,16 @@
 2. **Create `DigestNavbarProvider`** — client component similar to `HomePageNavbarProvider` that:
    - Fetches available dates from `/api/digest/dates`
    - Tracks `currentDate` from the URL param
-   - Provides `navigateToDate` using `router.push('/digest/[date]')`
+   - Provides `navigateToDate` using `router.push('/gaming/[date]')`
    - Wraps via `NavbarFeedContext`
-3. **Wrap digest pages** — add `DigestNavbarProvider` to both `app/digest/page.tsx` and `app/digest/[date]/page.tsx` so the navbar `CalendarMenu` receives live data
+3. **Wrap digest pages** — add `DigestNavbarProvider` to both `app/gaming/page.tsx` and `app/gaming/[date]/page.tsx` so the navbar `CalendarMenu` receives live data
 4. **Update `Navbar`** — add a `isDigestPage` check (similar to `isHomePage`) so `HomePageNav` (which renders `CalendarMenu`) is used on digest pages too
 
 **Files to modify:**
 - `app/api/digest/dates/route.ts` — new endpoint (list available blob dates)
 - `components/feed/digest-navbar-provider.tsx` — new provider component
-- `app/digest/page.tsx` — wrap with provider
-- `app/digest/[date]/page.tsx` — wrap with provider, pass date to provider
+- `app/gaming/page.tsx` — wrap with provider
+- `app/gaming/[date]/page.tsx` — wrap with provider, pass date to provider
 - `components/layout/navbar.tsx` — extend page detection to include digest pages
 
 ---

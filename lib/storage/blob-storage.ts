@@ -174,6 +174,23 @@ export class BlobStorage implements IStorage {
   }
 
   /**
+   * List all available digest dates, sorted newest first
+   */
+  async listDigestDates(): Promise<string[]> {
+    try {
+      const { blobs } = await list({ prefix: 'digests/' });
+      return blobs
+        .map(b => b.pathname.replace('digests/', '').replace('.json', ''))
+        .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort()
+        .reverse();
+    } catch (error) {
+      console.error('Error listing digest dates:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get the most recent digest
    */
   async getLatestDigest(): Promise<DailyDigest | null> {

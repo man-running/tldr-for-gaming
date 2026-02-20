@@ -251,6 +251,7 @@ export function Navbar() {
 	});
 
 	const isHomePage = pathname === "/";
+	const isGamingPage = pathname.startsWith("/gaming");
 	const isPaperPage = pathname.startsWith("/p/");
 
 	useEffect(() => {
@@ -297,7 +298,7 @@ export function Navbar() {
 
 	return (
 		<>
-			{isHomePage && feedData ? (
+			{(isHomePage || isGamingPage) && feedData ? (
 				<HomePageNav
 					feedData={feedData}
 					searchSlot={searchSlot}
